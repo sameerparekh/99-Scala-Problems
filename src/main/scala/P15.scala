@@ -1,7 +1,5 @@
 package org.p99.scala
 
 object P15 {
-
-  // TODO
-
+  def duplicateN[T](n: Int, l: List[T]): List[T] = l.flatMap(x => List.fill(n)(x))
 }

@@ -1,7 +1,5 @@
 package org.p99.scala
 
 object P10 {
-
-  // TODO
-
+  def encode[T](l: List[T]) = P09.pack(l).map(x => (x.length, x.head))
 }
