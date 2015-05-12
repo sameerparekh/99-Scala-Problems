@@ -1,7 +1,5 @@
 package org.p99.scala
 
 object P33 {
-
-  // TODO
-
+  def isCoprimeTo(a: Int, b: Int): Boolean = P32.gcd(a, b) == 1
 }

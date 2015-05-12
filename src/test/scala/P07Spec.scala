@@ -4,7 +4,9 @@ import org.scalatest._
 
 class P07Spec extends UnitSpec {
 
-  // TODO
+  "flatten" should "flatten a list" in {
+    P07.flatten(List('a, List('b, 'c, List('x)), List('d'))) should be (List('a, 'b, 'c, 'x, 'd))
+  }
 
 }
 

@@ -1,7 +1,6 @@
 package org.p99.scala
 
-object P48 {
+object P48 extends App {
 
-  // TODO
 
 }
