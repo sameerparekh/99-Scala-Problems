@@ -22,12 +22,17 @@ sealed abstract class Tree[+T] {
 
   def layoutBinaryTree: Tree[T]
   def layoutBinaryTree2: Tree[T]
+  def preorder: List[T]
+  def inorder: List[T]
+  def toDotString: String
+
 }
 
 
 
 abstract class GenericNode[+T](value: T, left: Tree[T], right: Tree[T]) extends Tree[T] {
-  override def toString = "T(" + value.toString + " " + left.toString + " " + right.toString + ")"
+  override def toString = if (left == End && right == End) s"$value" else s"$value($left,$right)"
+  def toDotString = value.toString + left.toDotString + right.toDotString
 
   def isSymmetric = Tree.isMirrorOf(left, right)
 
@@ -95,6 +100,9 @@ abstract class GenericNode[+T](value: T, left: Tree[T], right: Tree[T]) extends 
     }
     layoutBinaryTreeAux(this, 1, 1)
   }
+
+  def preorder = value :: left.preorder ::: right.preorder
+  def inorder = (left.inorder :+ value) ::: right.inorder
 }
 
 case class Node[+T](value: T, left: Tree[T], right: Tree[T]) extends GenericNode[T](value, left, right)
@@ -104,7 +112,8 @@ case class PositionedNode[+T](value: T, left: Tree[T], right: Tree[T], x: Int, y
 }
 
 case object End extends Tree[Nothing] {
-  override def toString = "."
+  override def toString = ""
+  def toDotString = "."
 
   val isSymmetric = true
 
@@ -120,6 +129,8 @@ case object End extends Tree[Nothing] {
   def atLevel(level: Int) = Nil
   val layoutBinaryTree = End
   val layoutBinaryTree2 = End
+  val inorder = Nil
+  val preorder = Nil
 
 }
 
@@ -219,10 +230,64 @@ object Tree {
         End
     completeBinarySubTree(1)
   }
+
+  def string2Tree(s: String): Tree[Char] = {
+    def extractTreeString(s: String, start: Int, end: Char): (String,Int) = {
+      def updateNesting(nesting: Int, pos: Int): Int = s(pos) match {
+        case '(' => nesting + 1
+        case ')' => nesting - 1
+        case _   => nesting
+      }
+      def findStringEnd(pos: Int, nesting: Int): Int =
+        if (s(pos) == end && nesting == 0) pos
+        else findStringEnd(pos + 1, updateNesting(nesting, pos))
+      val strEnd = findStringEnd(start, 0)
+      (s.substring(start, strEnd), strEnd)
+    }
+    s.length match {
+      case 0 => End
+      case 1 => Node(s(0))
+      case _ => {
+        val (leftStr, commaPos) = extractTreeString(s, 2, ',')
+        val (rightStr, _) = extractTreeString(s, commaPos + 1, ')')
+        Node(s(0), string2Tree(leftStr), string2Tree(rightStr))
+      }
+    }
+  }
+
+  def preInTree[T](preorder: List[T], inorder: List[T]): Tree[T] = {
+    def partition(l: List[T], x: T) = {
+      val leftList = l.takeWhile(y => y != x)
+      val rightList = l.drop(leftList.size + 1)
+      (leftList, rightList)
+    }
+    preorder match {
+      case Nil => End
+      case x :: xs =>
+        val (leftInorder, rightInorder) = partition(inorder, x)
+        val leftPreorder = xs.take(leftInorder.size)
+        val rightPreorder = xs.drop(leftInorder.size)
+        Node(x, preInTree(leftPreorder, leftInorder), preInTree(rightPreorder, rightInorder))
+    }
+  }
+
+  def fromDotString(s: String): Tree[Char] = {
+    def fromDotStringAux(s: String): (Tree[Char], String) = {
+      val value = s.head
+      value match {
+        case '.' => (End, s.tail)
+        case _ =>
+          val (leftTree, stringLeft) = fromDotStringAux(s.tail)
+          val (rightTree, stringLeftAgain) = fromDotStringAux(stringLeft)
+          (Node(value, leftTree, rightTree), stringLeftAgain)
+      }
+    }
+    fromDotStringAux(s)._1
+  }
 }
 
 
 object Test extends App {
 
-  println(Tree.fromList(List('n','k','m','c','a','e','d','g','u','p','q')).layoutBinaryTree2)
+  println(Tree.fromDotString(Tree.preInTree(List('a', 'b', 'a'), List('b', 'a', 'a')).toDotString))
 }
