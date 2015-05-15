@@ -3,15 +3,19 @@
 abstract class GraphBase[T, U] {
   case class Edge(n1: Node, n2: Node, value: U) {
     def toTuple = (n1.value, n2.value, value)
+    override def toString = n1.value + connector + n2.value
+    def toStringLabel: String = n1.value + connector + n2.value + "/" + value
+
   }
+
   case class Node(value: T) {
-    var adj: List[Edge] = Nil
+    var adj: Set[Edge] = Set.empty
     // neighbors are all nodes adjacent to this node.
-    def neighbors: List[Node] = adj.map(edgeTarget(_, this).get)
+    def neighbors: Set[Node] = adj.map(edgeTarget(_, this).get)
   }
 
   var nodes: Map[T, Node] = Map()
-  var edges: List[Edge] = Nil
+  var edges: Set[Edge] = Set.empty
 
   // If the edge E connects N to another node, returns the other node,
   // otherwise returns None.
@@ -28,14 +32,30 @@ abstract class GraphBase[T, U] {
   }
   def addEdge(n1: T, n2: T, value: U)
 
-  def toTermForm: (List[T], List[(T, T, U)]) = (nodes.keys.toList, edges.map(_.toTuple))
-  def toAdjacentForm: List[(T, List[T])] = nodes.map{ case (value: T, node: Node) => (value, node.neighbors.map(_.value)) }.toList
+  def toTermForm: (List[T], Set[(T, T, U)]) = (nodes.keys.toList, edges.map(_.toTuple))
+  def toAdjacentForm: List[(T, Set[(T, U)])] = nodes.map{ case (value: T, node: Node) => (value, node.adj.map(x => (x.n2.value, x.value))) }.toList
+  val connector: String
+
+  def connectedNodes: Set[T] = edges.flatMap(x => Set(x.n1.value, x.n2.value))
+  def disconnectedNodes: Set[T] = nodes.keys.toSet -- connectedNodes
+
+  override def toString: String =
+    "[" + (disconnectedNodes.map(_.toString) ++ edges.map(_.toString)).mkString(",") + "]"
+
+  def toStringLabel: String =
+    "[" + (disconnectedNodes.map(_.toString) ++ edges.map(_.toStringLabel)).mkString(",") + "]"
+
 }
 
 class Graph[T, U] extends GraphBase[T, U] {
   override def equals(o: Any) = o match {
     case g: Graph[_,_] => super.equals(g)
     case _ => false
+  }
+  implicit class EdgeOps(e: Edge) {
+    def equals(e2: Edge) = {
+      if((e.n1 == e2.n1 && e.n2 == e2.n2) || (e.n1 == e2.n2 && e.n2 == e2.n1)) true else false
+    }
   }
 
   def edgeTarget(e: Edge, n: Node): Option[Node] =
@@ -45,10 +65,13 @@ class Graph[T, U] extends GraphBase[T, U] {
 
   def addEdge(n1: T, n2: T, value: U) = {
     val e = new Edge(nodes(n1), nodes(n2), value)
-    edges = e :: edges
-    nodes(n1).adj = e :: nodes(n1).adj
-    nodes(n2).adj = e :: nodes(n2).adj
+    if(!(edges contains new Edge(nodes(n2), nodes(n1), value)))
+      edges += e
+    nodes(n1).adj += e
+    nodes(n2).adj += e
   }
+
+  val connector = "-"
 }
 
 class Digraph[T, U] extends GraphBase[T, U] {
@@ -63,14 +86,17 @@ class Digraph[T, U] extends GraphBase[T, U] {
 
   def addArc(source: T, dest: T, value: U) = {
     val e = new Edge(nodes(source), nodes(dest), value)
-    edges = e :: edges
-    nodes(source).adj = e :: nodes(source).adj
+    edges +=e
+    nodes(source).adj += e
   }
 
   def addEdge(source: T, dest: T, value: U) = addArc(source, dest, value)
+
+  val connector = ">"
 }
 
 abstract class GraphObjBase {
+
   type GraphClass[T, U]
   def addLabel[T](edges: List[(T, T)]) =
     edges.map(v => (v._1, v._2, ()))
@@ -83,8 +109,8 @@ abstract class GraphObjBase {
     adjacentLabel(addAdjacentLabel(nodes))
   def adjacentLabel[T, U](nodes: List[(T, List[(T,U)])]): GraphClass[T, U]
 
-  def fromString[G <: GraphBase[Char, Null]](s: String, edgeSeperator: Char, g: G): G = {
-    val pairs = s.substring(1, s.length - 2).split(',').map(_.trim)
+  def fromString[G <: GraphBase[Char, Unit]](s: String, edgeSeperator: Char, g: G): G = {
+    val pairs = s.substring(1, s.length - 1).split(',').map(_.trim)
     val nodes = pairs.map(_.split(edgeSeperator).map(_(0)))
 
     def addNode(value: Char): Unit = {
@@ -96,7 +122,7 @@ abstract class GraphObjBase {
       if(edge.length == 2) {
         g.addNode(edge(0))
         g.addNode(edge(1))
-        g.addEdge(edge(0), edge(1), null)
+        g.addEdge(edge(0), edge(1), ())
       }
       else
         g.addNode(edge(0))
@@ -106,7 +132,7 @@ abstract class GraphObjBase {
   }
 
   def fromStringLabel[G <: GraphBase[Char, Int]](s: String, edgeSeperator: Char, g: G): G = {
-    val pairs = s.substring(1, s.length - 2).split(',').map(_.trim)
+    val pairs = s.substring(1, s.length - 1).split(',').map(_.trim)
 
     def addNode(value: Char): Unit = {
       if(!g.nodes.contains(value))
@@ -121,9 +147,11 @@ abstract class GraphObjBase {
       else {
         val splitByLabel = splitByNode(1).split('/')
         addNode(splitByLabel(0)(0))
+        addNode(splitByNode(0)(0))
         g.addEdge(splitByNode(0)(0), splitByLabel(0)(0), splitByLabel(1).toInt)
       }
     }
+    pairs.foreach(addEdge)
     g
   }
 }
@@ -147,7 +175,7 @@ object Graph extends GraphObjBase {
     g
   }
 
-  def fromString(s: String): Graph[Char, Null] = super.fromString[Graph[Char, Null]](s, '-', new Graph[Char, Null])
+  def fromString(s: String): Graph[Char, Unit] = super.fromString[Graph[Char, Unit]](s, '-', new Graph[Char, Unit])
   def fromStringLabel(s: String): Graph[Char, Int] = super.fromStringLabel[Graph[Char, Int]](s, '-', new Graph[Char, Int])
 
 }
@@ -167,12 +195,12 @@ object Digraph extends GraphObjBase {
     for ((s, a) <- nodes; (d, l) <- a) g.addArc(s, d, l)
     g
   }
-  def fromString(s: String): Digraph[Char, Null] = super.fromString[Digraph[Char, Null]](s, '>', new Digraph[Char, Null])
+  def fromString(s: String): Digraph[Char, Unit] = super.fromString[Digraph[Char, Unit]](s, '>', new Digraph[Char, Unit])
   def fromStringLabel(s: String): Digraph[Char, Int] = super.fromStringLabel[Digraph[Char, Int]](s, '>', new Digraph[Char, Int])
-
-
 }
 
 object Test extends App {
-  println(Graph.fromString("[b-c, f-c, g-h, d, f-b, k-f, h-g]").toAdjacentForm)
+
+  println(Graph.fromStringLabel("[b-c/4, f-c/10, g-h/6, d, f-b/9, k-f/10, b-f/9]").toStringLabel)
+  println(Digraph.fromStringLabel("[b>c/4, f>c/10, g>h/6, d, f>b/9, k>f/10, h>g/5]").toStringLabel)
 }
