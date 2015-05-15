@@ -13,14 +13,14 @@ object MTree {
   def apply[T](value: T, children: List[MTree[T]]) = new MTree(value, children)
 
   def fromString(s: String): MTree[Char] = {
-    def getChildren(s: String): (List[MTree[Char]], String) = s.toList match {
-      case '^' :: t => (Nil, s.tail)
-      case _ =>
-        val (firstTree, remaining) = fromStringAux(s)
-        val (nextChildren, remaining2) = getChildren(remaining)
-        (firstTree :: nextChildren, remaining2)
-    }
     def fromStringAux(s: String): (MTree[Char], String) = {
+      def getChildren(s: String): (List[MTree[Char]], String) = s.toList match {
+        case '^' :: t => (Nil, s.tail)
+        case _ =>
+          val (firstTree, remaining) = fromStringAux(s)
+          val (nextChildren, remaining2) = getChildren(remaining)
+          (firstTree :: nextChildren, remaining2)
+      }
       val value = s.head
       val (children, remaining) = getChildren(s.tail)
       (MTree(value, children), remaining)
@@ -34,6 +34,6 @@ object MTree {
 object TestMTree extends App {
   println(MTree('a', List(MTree('f'))).toString)
   println(MTree('a', List(MTree('f', List(MTree('g'))), MTree('c'), MTree('b', List(MTree('d'), MTree('e'))))).toString)
-  val y: MTree[Char] = "afg^^c^bd^e^^^"
+  val y: MTree[Char] = "afg^c^bd^e^f^^^^"
   println(y.lispyTree)
 }
