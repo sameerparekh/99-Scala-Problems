@@ -45,6 +45,16 @@ abstract class GraphBase[T, U] {
   def toStringLabel: String =
     "[" + (disconnectedNodes.map(_.toString) ++ edges.map(_.toStringLabel)).mkString(",") + "]"
 
+  def findPaths(start: T, end: T): Set[List[T]] = {
+    def findPathsAux(start: T, end: T, visited: Set[T]): Set[List[T]] = {
+      if (start == end)
+        Set(List(start))
+      else {
+        nodes(start).neighbors.filterNot(visited contains _.value).flatMap(x => findPathsAux(x.value, end, visited + start)).map(start :: _)
+      }
+    }
+    findPathsAux(start, end, Set.empty)
+  }
 }
 
 class Graph[T, U] extends GraphBase[T, U] {
@@ -72,11 +82,12 @@ class Graph[T, U] extends GraphBase[T, U] {
   }
 
   val connector = "-"
+
 }
 
 class Digraph[T, U] extends GraphBase[T, U] {
   override def equals(o: Any) = o match {
-    case g: Digraph[_,_] => super.equals(g)
+    case g: Digraph[_, _] => super.equals(g)
     case _ => false
   }
 
@@ -86,7 +97,7 @@ class Digraph[T, U] extends GraphBase[T, U] {
 
   def addArc(source: T, dest: T, value: U) = {
     val e = new Edge(nodes(source), nodes(dest), value)
-    edges +=e
+    edges += e
     nodes(source).adj += e
   }
 
@@ -197,10 +208,14 @@ object Digraph extends GraphObjBase {
   }
   def fromString(s: String): Digraph[Char, Unit] = super.fromString[Digraph[Char, Unit]](s, '>', new Digraph[Char, Unit])
   def fromStringLabel(s: String): Digraph[Char, Int] = super.fromStringLabel[Digraph[Char, Int]](s, '>', new Digraph[Char, Int])
+
+
 }
 
 object Test extends App {
 
   println(Graph.fromStringLabel("[b-c/4, f-c/10, g-h/6, d, f-b/9, k-f/10, b-f/9]").toStringLabel)
   println(Digraph.fromStringLabel("[b>c/4, f>c/10, g>h/6, d, f>b/9, k>f/10, h>g/5]").toStringLabel)
+  println(Digraph.fromStringLabel("[p>q/9, m>q/7, k, p>m/5]").findPaths('q', 'p'))
+  println(Graph.fromStringLabel("[p-q/9, m-q/7, k, p-m/5]").findPaths('p', 'q'))
 }
