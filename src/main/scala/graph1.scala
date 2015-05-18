@@ -1,4 +1,4 @@
-
+import scala.collection.SortedSet
 
 abstract class GraphBase[T, U] {
   case class Edge(n1: Node, n2: Node, value: U) {
@@ -26,9 +26,12 @@ abstract class GraphBase[T, U] {
     case _ => false
   }
   def addNode(value: T) = {
-    val n = new Node(value)
-    nodes = Map(value -> n) ++ nodes
-    n
+    if (!(nodes contains value)) {
+      val n = new Node(value)
+      nodes = Map(value -> n) ++ nodes
+      n
+    } else
+      nodes(value)
   }
   def addEdge(n1: T, n2: T, value: U)
 
@@ -55,9 +58,23 @@ abstract class GraphBase[T, U] {
     }
     findPathsAux(start, end, Set.empty)
   }
+
+  def findCycles(start: T): Set[List[T]] = {
+    nodes(start).neighbors.flatMap(x => findPaths(x.value, start)).map(start :: _).filter(_.length > 3)
+  }
+
+
 }
 
 class Graph[T, U] extends GraphBase[T, U] {
+
+  def copy(): Graph[T, U] = {
+    val g = new Graph[T, U]()
+    nodes.keys.foreach(g.addNode)
+    edges.foreach(x => g.addEdge(x.n1.value, x.n2.value, x.value))
+    g
+  }
+
   override def equals(o: Any) = o match {
     case g: Graph[_,_] => super.equals(g)
     case _ => false
@@ -83,6 +100,49 @@ class Graph[T, U] extends GraphBase[T, U] {
 
   val connector = "-"
 
+  def spanningTrees: Set[Graph[T,U]] = {
+    def treesFrom(g: Graph[T, U]): Set[Graph[T, U]] = {
+      def xor(x:Boolean, y:Boolean) = (x && !y) || (y && !x)
+      val notInGraphEdges = edges.filter(x => xor(g.nodes.isDefinedAt(x.n1.value), g.nodes.isDefinedAt(x.n2.value)))
+      if (notInGraphEdges.isEmpty) {
+        Set(g)
+      }
+      else {
+        val newGraphs = notInGraphEdges.map { edge =>
+          val newGraph = g.copy()
+          newGraph.addNode(edge.n1.value)
+          newGraph.addNode(edge.n2.value)
+          newGraph.addEdge(edge.n1.value, edge.n2.value, edge.value)
+          newGraph
+        }
+        newGraphs.flatMap(treesFrom)
+      }
+    }
+    val g = new Graph[T, U]
+    g.addNode(nodes.values.head.value)
+    treesFrom(g)
+  }
+
+  def minimalSpanningTree(implicit f: (U) => Ordered[U]): Graph[T, U] = {
+    def treeFrom(g: Graph[T, U]): Graph[T, U] = {
+      def xor(x:Boolean, y:Boolean) = (x && !y) || (y && !x)
+      val notInGraphEdges = edges.filter(x => xor(g.nodes.isDefinedAt(x.n1.value), g.nodes.isDefinedAt(x.n2.value)))
+      if (notInGraphEdges.isEmpty) {
+        g
+      }
+      else {
+        val newGraph = g.copy()
+        val edge: Edge = notInGraphEdges.minBy(_.value)
+        newGraph.addNode(edge.n1.value)
+        newGraph.addNode(edge.n2.value)
+        newGraph.addEdge(edge.n1.value, edge.n2.value, edge.value)
+        treeFrom(newGraph)
+      }
+    }
+    val g = new Graph[T, U]
+    g.addNode(nodes.values.head.value)
+    treeFrom(g)
+  }
 }
 
 class Digraph[T, U] extends GraphBase[T, U] {
@@ -172,7 +232,7 @@ object Graph extends GraphObjBase {
 
   def termLabel[T, U](nodes: List[T], edges: List[(T,T,U)]) = {
     val g = new Graph[T, U]
-    nodes.map(g.addNode)
+    nodes.foreach(g.addNode)
     edges.foreach(v => g.addEdge(v._1, v._2, v._3))
     g
   }
@@ -218,4 +278,13 @@ object Test extends App {
   println(Digraph.fromStringLabel("[b>c/4, f>c/10, g>h/6, d, f>b/9, k>f/10, h>g/5]").toStringLabel)
   println(Digraph.fromStringLabel("[p>q/9, m>q/7, k, p>m/5]").findPaths('q', 'p'))
   println(Graph.fromStringLabel("[p-q/9, m-q/7, k, p-m/5]").findPaths('p', 'q'))
+  println(Graph.fromString("[b-c, f-c, g-h, d, f-b, k-f, h-g]").findCycles('f'))
+  println(Graph.fromString("[a-b, b-c, a-c]").spanningTrees)
+  val g = Graph.term(List('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'),
+    List(('a', 'b'), ('a', 'd'), ('b', 'c'), ('b', 'e'),
+      ('c', 'e'), ('d', 'e'), ('d', 'f'), ('d', 'g'),
+      ('e', 'h'), ('f', 'g'), ('g', 'h')))
+  println(g.spanningTrees.size)
+  println(g.minimalSpanningTree)
+  println(Graph.fromStringLabel("[a-b/1, b-c/2, a-c/3]").minimalSpanningTree.toStringLabel)
 }
