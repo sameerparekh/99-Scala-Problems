@@ -22,7 +22,7 @@ abstract class GraphBase[T, U] {
   def edgeTarget(e: Edge, n: Node): Option[Node]
 
   override def equals(o: Any) = o match {
-    case g: GraphBase[_,_] => (nodes.keys.toSet -- g.nodes.keys.toSet) == Set.empty && (edges.map(_.toTuple) -- g.edges.map(_.toTuple)) == Set.empty
+    case g: GraphBase[_,_] => (nodes.keys.toSet -- g.nodes.keys.toSet) == Set.empty && (edges.map(_.toTuple).toSet -- g.edges.map(_.toTuple).toSet) == Set.empty
     case _ => false
   }
   def addNode(value: T) = {
