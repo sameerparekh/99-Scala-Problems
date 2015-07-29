@@ -1,5 +1,6 @@
 import scala.collection.SortedSet
 import scala.collection.mutable.Queue
+import scala.math._
 import scala.util.Random
 
 abstract class GraphBase[T, U] {
@@ -228,7 +229,8 @@ class Graph[T, U] extends GraphBase[T, U] {
   def tspExhaustive(implicit ev: Numeric[U]): Vector[T] = {
     val head = nodes.keys.head
     val paths = nodes.keys.toList.tail.permutations.map(path => (head +: path) :+ head)
-    val pathCosts = paths.map(path => (costFromNodes(path.toVector), path.toVector))
+    val pathCosts = paths.map(path => (costFromNodes(path.toVector), path.toVector)).toList
+    val sorted = pathCosts.sortBy(x => x._1)
     pathCosts.minBy(_._1)._2
   }
 
@@ -256,20 +258,25 @@ class Graph[T, U] extends GraphBase[T, U] {
       swap(route, swap1, swap2)
     }
 
-    def optimize(oldRoute: Vector[T], oldCost: U, modifier: (Vector[T]) => Vector[T], cost: (Vector[T]) => U, iter: Int)(implicit f: (U) => Ordered[U]): Vector[T] = {
-      println(oldRoute.toString + " = " + oldCost.toString)
-      if (iter > 100)
+    def optimize(oldRoute: Vector[T], oldCost: U, modifier: (Vector[T]) => Vector[T], cost: (Vector[T]) => U, iter: Int, temp: Double)(implicit f: (U) => Ordered[U]): Vector[T] = {
+      if (iter > 10000)
         oldRoute
       else {
+        val newTemp = if ((iter % 10) == 0) temp * 0.95 else temp
         val newRoute = modifier(oldRoute)
         val newCost = cost(newRoute)
-        if (newCost < oldCost)
-          optimize(newRoute, newCost, modifier, cost, iter + 1)
+        if (newCost > oldCost) {
+          val test = exp(-(newCost - oldCost).toDouble / (1000 * temp))
+          if (test >= r.nextDouble())
+            optimize(newRoute, newCost, modifier, cost, iter + 1, newTemp)
+          else
+            optimize(oldRoute, oldCost, modifier, cost, iter + 1, newTemp)
+        }
         else
-          optimize(oldRoute, oldCost, modifier, cost, iter + 1)
+          optimize(newRoute, newCost, modifier, cost, iter + 1, newTemp)
       }
     }
-    optimize(firstRoute, firstCost, modifyRoute, costFromNodes, 0)
+    optimize(firstRoute, firstCost, modifyRoute, costFromNodes, 0, 1.0)
   }
 }
 
