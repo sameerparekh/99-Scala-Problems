@@ -300,18 +300,19 @@ object Digraph extends GraphObjBase {
 
 object Test extends App {
 
-  println(Graph.fromStringLabel("[b-c/4, f-c/10, g-h/6, d, f-b/9, k-f/10, b-f/9]").toStringLabel)
-  println(Digraph.fromStringLabel("[b>c/4, f>c/10, g>h/6, d, f>b/9, k>f/10, h>g/5]").toStringLabel)
-  println(Digraph.fromStringLabel("[p>q/9, m>q/7, k, p>m/5]").findPaths('q', 'p'))
-  println(Graph.fromStringLabel("[p-q/9, m-q/7, k, p-m/5]").findPaths('p', 'q'))
-  println(Graph.fromString("[b-c, f-c, g-h, d, f-b, k-f, h-g]").findCycles('f'))
-  println(Graph.fromString("[a-b, b-c, a-c]").spanningTrees)
+//  println(Graph.fromStringLabel("[b-c/4, f-c/10, g-h/6, d, f-b/9, k-f/10, b-f/9]").toStringLabel)
+//  println(Digraph.fromStringLabel("[b>c/4, f>c/10, g>h/6, d, f>b/9, k>f/10, h>g/5]").toStringLabel)
+//  println(Digraph.fromStringLabel("[p>q/9, m>q/7, k, p>m/5]").findPaths('q', 'p'))
+//  println(Graph.fromStringLabel("[p-q/9, m-q/7, k, p-m/5]").findPaths('p', 'q'))
+//  println(Graph.fromString("[b-c, f-c, g-h, d, f-b, k-f, h-g]").findCycles('f'))
+//  println(Graph.fromString("[a-b, b-c, a-c]").spanningTrees)
   val g = Graph.termLabel(List('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'),
     List(('a', 'b', 6), ('a', 'd', 7), ('b', 'c', 8), ('b', 'e', 10),
       ('c', 'e', 1), ('d', 'e', 5), ('d', 'f', 6), ('d', 'g', 9),
       ('e', 'h', 6), ('f', 'g', 7), ('g', 'h', 9)))
-  println(g.spanningTrees.size)
-  println(g.minimalSpanningTree)
+//  println(g.spanningTrees.size)
+//  println(g.minimalSpanningTree)
   println(g.shortestPath('a'))
-  println(Graph.fromStringLabel("[a-b/1, b-c/2, a-c/3]").minimalSpanningTree.toStringLabel)
+  println(g.findPaths('a', 'h'))
+//  println(Graph.fromStringLabel("[a-b/1, b-c/2, a-c/3]").minimalSpanningTree.toStringLabel)
 }
