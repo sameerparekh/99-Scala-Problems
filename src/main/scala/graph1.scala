@@ -3,8 +3,8 @@ import scala.collection.SortedSet
 abstract class GraphBase[T, U] {
   case class Edge(n1: Node, n2: Node, value: U) {
     def toTuple = (n1.value, n2.value, value)
-    override def toString = n1.value + connector + n2.value
-    def toStringLabel: String = n1.value + connector + n2.value + "/" + value
+    override def toString = n1.value.toString + connector + n2.value.toString
+    def toStringLabel: String = n1.value.toString + connector + n2.value.toString + "/" + value.toString
 
   }
 
@@ -22,7 +22,7 @@ abstract class GraphBase[T, U] {
   def edgeTarget(e: Edge, n: Node): Option[Node]
 
   override def equals(o: Any) = o match {
-    case g: GraphBase[_,_] => (nodes.keys.toSet -- g.nodes.keys.toSet) == Set.empty && (edges.map(_.toTuple).toSet -- g.edges.map(_.toTuple).toSet) == Set.empty
+    case g: GraphBase[_,_] => (nodes.keys.toSet -- g.nodes.keys.toSet) == Set.empty && (edges.map(_.toTuple) -- g.edges.map(_.toTuple)) == Set.empty
     case _ => false
   }
   def addNode(value: T) = {
@@ -143,6 +143,32 @@ class Graph[T, U] extends GraphBase[T, U] {
     g.addNode(nodes.values.head.value)
     treeFrom(g)
   }
+
+  def shortestPath(startNodeValue: T)(implicit ev: Numeric[U]): Map[Node, (List[Node], U)] = {
+    import Numeric.Implicits._
+    val startNode = nodes(startNodeValue)
+
+    def xor(x:Boolean, y:Boolean) = (x && !y) || (y && !x)
+    def treeFrom(mapped: Map[Node, (List[Node], U)]): Map[Node, (List[Node], U)] = {
+      val neighboringNodes: List[(Node, Node, U)] = mapped.toList.flatMap
+        {
+            case (n: Node, (_, d: U)) =>
+              n.adj.filter(x => xor(mapped isDefinedAt x.n1, mapped isDefinedAt x.n2)).map {
+                edge =>
+                  (n, if (edge.n1 == n) edge.n2 else edge.n1, edge.value + d)
+              }
+        }
+      if (neighboringNodes.isEmpty)
+        mapped
+      else {
+        val minNode = neighboringNodes.minBy(_._3)
+        val pathToMinNode = mapped(minNode._1)._1 :+ minNode._2
+        treeFrom(mapped + (minNode._2 -> (pathToMinNode, minNode._3)))
+      }
+    }
+    treeFrom(Map(startNode -> (List(startNode), ev.zero)))
+  }
+
 }
 
 class Digraph[T, U] extends GraphBase[T, U] {
@@ -280,11 +306,12 @@ object Test extends App {
   println(Graph.fromStringLabel("[p-q/9, m-q/7, k, p-m/5]").findPaths('p', 'q'))
   println(Graph.fromString("[b-c, f-c, g-h, d, f-b, k-f, h-g]").findCycles('f'))
   println(Graph.fromString("[a-b, b-c, a-c]").spanningTrees)
-  val g = Graph.term(List('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'),
-    List(('a', 'b'), ('a', 'd'), ('b', 'c'), ('b', 'e'),
-      ('c', 'e'), ('d', 'e'), ('d', 'f'), ('d', 'g'),
-      ('e', 'h'), ('f', 'g'), ('g', 'h')))
+  val g = Graph.termLabel(List('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'),
+    List(('a', 'b', 6), ('a', 'd', 7), ('b', 'c', 8), ('b', 'e', 10),
+      ('c', 'e', 1), ('d', 'e', 5), ('d', 'f', 6), ('d', 'g', 9),
+      ('e', 'h', 6), ('f', 'g', 7), ('g', 'h', 9)))
   println(g.spanningTrees.size)
   println(g.minimalSpanningTree)
+  println(g.shortestPath('a'))
   println(Graph.fromStringLabel("[a-b/1, b-c/2, a-c/3]").minimalSpanningTree.toStringLabel)
 }
