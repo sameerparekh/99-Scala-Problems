@@ -2,6 +2,7 @@ import scala.collection.SortedSet
 import scala.collection.mutable.Queue
 import scala.math._
 import scala.util.Random
+import Numeric.Implicits._
 
 abstract class GraphBase[T, U] {
   case class Edge(n1: Node, n2: Node, value: U) {
@@ -175,7 +176,6 @@ class Graph[T, U] extends GraphBase[T, U] {
   }
 
   def shortestPath(startNodeValue: T)(implicit ev: Numeric[U]): Map[Node, (List[Node], U)] = {
-    import Numeric.Implicits._
     val startNode = nodes(startNodeValue)
 
     def xor(x:Boolean, y:Boolean) = (x && !y) || (y && !x)
@@ -234,14 +234,14 @@ class Graph[T, U] extends GraphBase[T, U] {
     pathCosts.minBy(_._1)._2
   }
 
-  def tspLocalSearch(implicit ev: Numeric[U]): Vector[T] = {
-    import Numeric.Implicits._
-
+  def tspMST(implicit ev: Numeric[U]): Vector[T] = {
     val minTree = minimalSpanningTree
     val topNode = nodes.head._1
     val dfs = minTree.depthFirstTraversal(topNode)
-    val firstRoute = (topNode :: dfs.reverse).reverse.toVector
+    (topNode :: dfs.reverse).reverse.toVector
+  }
 
+  def tspLocalSearch(firstRoute: Vector[T])(implicit ev: Numeric[U]): Vector[T] = {
     val firstCost = costFromNodes(firstRoute)
     val r = new Random()
     def modifyRoute(route: Vector[T]): Vector[T] = {
@@ -258,25 +258,26 @@ class Graph[T, U] extends GraphBase[T, U] {
       swap(route, swap1, swap2)
     }
 
-    def optimize(oldRoute: Vector[T], oldCost: U, modifier: (Vector[T]) => Vector[T], cost: (Vector[T]) => U, iter: Int, temp: Double)(implicit f: (U) => Ordered[U]): Vector[T] = {
-      if (iter > 10000)
+    def optimize(oldRoute: Vector[T], oldCost: U, modifier: (Vector[T]) => Vector[T], cost: (Vector[T]) => U, iterTemp: Int, unchanged: Int, temp: Double)(implicit f: (U) => Ordered[U]): Vector[T] = {
+      println(oldRoute, oldCost, iterTemp, unchanged, f"$temp%1.2f")
+      if (unchanged > 100)
         oldRoute
       else {
-        val newTemp = if ((iter % 10) == 0) temp * 0.95 else temp
+        val newTemp = if ((iterTemp % 10) == 0) temp * 0.95 else temp
         val newRoute = modifier(oldRoute)
         val newCost = cost(newRoute)
         if (newCost > oldCost) {
           val test = exp(-(newCost - oldCost).toDouble / (1000 * temp))
           if (test >= r.nextDouble())
-            optimize(newRoute, newCost, modifier, cost, iter + 1, newTemp)
+            optimize(newRoute, newCost, modifier, cost, iterTemp + 1, 0, newTemp)
           else
-            optimize(oldRoute, oldCost, modifier, cost, iter + 1, newTemp)
+            optimize(oldRoute, oldCost, modifier, cost, iterTemp + 1, unchanged + 1, newTemp)
         }
         else
-          optimize(newRoute, newCost, modifier, cost, iter + 1, newTemp)
+          optimize(newRoute, newCost, modifier, cost, iterTemp + 1, if (newCost == oldCost) unchanged + 1 else 0, newTemp)
       }
     }
-    optimize(firstRoute, firstCost, modifyRoute, costFromNodes, 0, 1.0)
+    optimize(firstRoute, firstCost, modifyRoute, costFromNodes, 0, 0, 1.0)
   }
 }
 
@@ -415,10 +416,11 @@ object Test extends App {
 //  println(Graph.fromStringLabel("[p-q/9, m-q/7, k, p-m/5]").findPaths('p', 'q'))
 //  println(Graph.fromString("[b-c, f-c, g-h, d, f-b, k-f, h-g]").findCycles('f'))
 //  println(Graph.fromString("[a-b, b-c, a-c]").spanningTrees)
-  val g = Graph.termLabel(List('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'),
+  val g = Graph.termLabel(List('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l'),
     List(('a', 'b', 6), ('a', 'd', 7), ('b', 'c', 8), ('b', 'e', 10),
       ('c', 'e', 1), ('d', 'g', 9),
-      ('e', 'h', 6), ('f', 'g', 7), ('g', 'h', 9)))
+      ('e', 'h', 6), ('f', 'g', 7), ('g', 'h', 9), ('h', 'i', 4), ('j', 'k', 10), ('h', 'j', 4), ('k', 'a', 4),
+      ('l', 'd', 4)))
 //  println(g.spanningTrees.size)
 //  println(g.minimalSpanningTree)
 //  println(g.shortestPath('a'))
@@ -428,9 +430,9 @@ object Test extends App {
 //  val path = g.pathFromNodes(dfs ::: List('a'))
 //  println(path)
 //  println(g.pathCost(path))
-  val tspExhaustive = g.tspExhaustive
-  println(tspExhaustive, g.costFromNodes(tspExhaustive))
-  val tspLocalSearch = g.tspLocalSearch
+  //val tspExhaustive = g.tspExhaustive
+  //println(tspExhaustive, g.costFromNodes(tspExhaustive))
+  val tspLocalSearch = g.tspLocalSearch(g.tspMST)
   println(tspLocalSearch, g.costFromNodes(tspLocalSearch))
 //  println(g.breadthFirstTraversal('a'))
 
