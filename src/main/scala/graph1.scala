@@ -241,6 +241,28 @@ class Graph[T, U] extends GraphBase[T, U] {
     (topNode :: dfs.reverse).reverse.toVector
   }
 
+  def tspIncrementalInsertion(implicit ev: Numeric[U]): Vector[T] = {
+    val topNode = nodes.keys.head
+    def insertPoints(partialTour: Vector[T]): Vector[T] = {
+      if (partialTour.size == nodes.size + 1)
+        partialTour
+      else {
+        val remainingPoints = nodes.keys.filterNot(partialTour contains _)
+        def insertionPoint(n: T): (U, Int) = {
+          val shortestPaths = shortestPath(n)
+          (partialTour zip partialTour.tail).map {
+            case (vi: T, viNext: T) => shortestPaths(nodes(vi))._2 + shortestPaths(nodes(viNext))._2
+          }.zipWithIndex.minBy(_._1)
+        }
+        val (pos: Int, point: T) = remainingPoints.map(insertionPoint).zip(remainingPoints).maxBy(_._1._1) match {
+          case ((_, pos: Int), pointToAdd: T) => (pos, pointToAdd)
+        }
+        insertPoints((partialTour.take(pos + 1) :+ point) ++ partialTour.drop(pos + 1))
+      }
+    }
+    insertPoints(Vector[T](topNode, topNode))
+  }
+
   def tspLocalSearch(firstRoute: Vector[T])(implicit ev: Numeric[U]): Vector[T] = {
     val firstCost = costFromNodes(firstRoute)
     val r = new Random()
@@ -432,8 +454,14 @@ object Test extends App {
 //  println(g.pathCost(path))
   //val tspExhaustive = g.tspExhaustive
   //println(tspExhaustive, g.costFromNodes(tspExhaustive))
-  val tspLocalSearch = g.tspLocalSearch(g.tspMST)
-  println(tspLocalSearch, g.costFromNodes(tspLocalSearch))
+  //val tspLocalSearch = g.tspLocalSearch(g.tspMST)
+  //println(tspLocalSearch, g.costFromNodes(tspLocalSearch))
+  val tspInsertion = g.tspIncrementalInsertion
+  println(tspInsertion, g.costFromNodes(tspInsertion))
+  val tspMST = g.tspMST
+  println(tspMST, g.costFromNodes(tspMST))
+  g.tspLocalSearch(tspInsertion)
+  g.tspLocalSearch(tspMST)
 //  println(g.breadthFirstTraversal('a'))
 
   //  println(Graph.fromStringLabel("[a-b/1, b-c/2, a-c/3]").minimalSpanningTree.toStringLabel)
